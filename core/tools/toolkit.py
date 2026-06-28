@@ -7,7 +7,12 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 
-from core.prompt.analysis import ANALYSIS_PROMPT, format_analysis_prompt
+from core.prompt.analysis import (
+    ANALYSIS_PROMPT,
+    format_analysis_prompt,
+    format_email_prompt,
+    format_script_prompt,
+)
 
 load_dotenv()
 tavily = tavily.TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))

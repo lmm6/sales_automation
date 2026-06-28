@@ -9,8 +9,7 @@ __pycache__/
 dist/
 build/
 
-# Generated
-proposals/
+# Generatedproposals/
 
 # Temp helper files
 _fix_nodes.py

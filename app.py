@@ -10,31 +10,13 @@ os.environ["OPENAI_API_BASE"] = os.getenv("DEEPSEEK_API_URL", "https://api.deeps
 
 import requests
 from core.agent.loader import load_agent_profile
+from core.tools.toolkit import generate_email, generate_script
 from graph.workflow import build_sales_graph
 
 app = Flask(__name__)
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_API_URL = os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com/v1")
-
-def call_llm(prompt, system_prompt="你是专业的B2B销售顾问。", temperature=0.7):
-    try:
-        resp = requests.post(
-            f"{DEEPSEEK_API_URL}/chat/completions",
-            headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "deepseek-chat",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": temperature,
-            },
-            timeout=60,
-        )
-        return resp.json()["choices"][0]["message"]["content"].strip()
-    except Exception:
-        return None
 
 @app.route("/")
 def index():
@@ -75,27 +57,20 @@ def analyze():
         script_text = result.get("script", "") or ""
 
         if score >= 70 and (not email_text or len(email_text) < 20):
-            prompt = (
-                "请为以下B2B客户撰写一封专业的跟进邮件。\n\n"
-                "企业：" + company_name + "\n"
-                "行业：" + industry + "\n"
-                "核心痛点：" + pain_points + "\n"
-                "跟进建议：" + suggestion + "\n\n"
-                "要求：专业简洁的商务语气，包含具体价值主张，不超过300字。只输出邮件正文。"
-            )
-            email_text = call_llm(prompt, "你是一位资深B2B销售专家。") or email_text
+            email_text = generate_email({
+                "company_name": company_name,
+                "industry": industry,
+                "pain_points": pain_points,
+                "suggestion": suggestion
+            }) or email_text
 
         if score >= 70 and (not script_text or len(script_text) < 20):
-            prompt = (
-                "请为以下B2B客户撰写一通电话销售话术。\n\n"
-                "企业：" + company_name + "\n"
-                "行业：" + industry + "\n"
-                "核心痛点：" + pain_points + "\n"
-                "跟进建议：" + suggestion + "\n\n"
-                "要求：包含开场白、需求探询、价值陈述、邀约下一步，对话式，不超过400字。只输出话术正文。"
-            )
-            script_text = call_llm(prompt, "你是一位资深B2B电话销售专家。") or script_text
-
+            script_text = generate_script({
+                "company_name": company_name,
+                "industry": industry,
+                "pain_points": pain_points,
+                "suggestion": suggestion
+            }) or script_text
         proposal_path = result.get("proposal_path", "") or ""
         if score >= 70 and proposal_path:
             os.makedirs("proposals", exist_ok=True)
