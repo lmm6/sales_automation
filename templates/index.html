@@ -1,246 +1,183 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sales Pipeline</title>
+<title>Sales Pipeline - AI 销售助手</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--blue:#1a56db;--blue-light:#2563eb;--gray-50:#f9fafb;--gray-100:#f3f4f6;--gray-200:#e5e7eb;--gray-300:#d1d5db;--gray-400:#9ca3af;--gray-500:#6b7280;--gray-600:#4b5563;--gray-700:#374151;--gray-800:#1f2937;--gray-900:#111827;--green:#059669;--green-light:#d1fae5;--yellow:#d97706;--yellow-light:#fef3c7;--red:#dc2626;--radius:8px}
-body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:var(--gray-50);color:var(--gray-900);line-height:1.6}
-.container{max-width:880px;margin:0 auto;padding:24px 20px}
-.header{text-align:center;padding:40px 0 32px}
-.header h1{font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px}
-.header p{font-size:14px;color:var(--gray-500);margin-top:4px}
-.card{background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:24px;margin-bottom:24px}
-.card label{font-size:13px;font-weight:600;display:block;margin-bottom:8px}
-.row{display:flex;gap:10px}
-.row input{flex:1;height:42px;padding:0 14px;border:1px solid var(--gray-300);border-radius:6px;font-size:14px;outline:none}
-.row input:focus{border-color:var(--blue)}
-.row button{height:42px;padding:0 20px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;white-space:nowrap}
-.row button:hover{background:var(--blue-light)}
-.row button:disabled{opacity:.6}
-.spinner{display:none;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:s .6s linear infinite}
-.btn-load .spinner{display:inline-block}
-.btn-load .btxt{display:none}
-@keyframes s{to{transform:rotate(360deg)}}
-#results{display:none;margin-bottom:24px}
-#results.show{display:block}
-.grid{display:grid;grid-template-columns:200px 1fr;gap:16px}
-@media(max-width:600px){.grid{grid-template-columns:1fr}}
-.gauge{border:1px solid var(--gray-200);border-radius:8px;padding:24px;text-align:center;background:#fff}
-.gauge .num{font-size:48px;font-weight:700;line-height:1}
-.gauge .lbl{font-size:12px;color:var(--gray-500)}
-.gauge .bar{height:6px;border-radius:3px;background:var(--gray-200);margin-top:16px;overflow:hidden}
-.gauge .bar-in{height:100%;border-radius:3px;transition:width .6s}
-.gauge .desc{font-size:13px;color:var(--gray-600);margin-top:16px}
+:root{--blue:#1a56db;--blue-light:#2563eb;--gray-50:#f9fafb;--gray-100:#f3f4f6;--gray-200:#e5e7eb;--gray-300:#d1d5db;--gray-400:#9ca3af;--gray-500:#6b7280;--gray-600:#4b5563;--gray-700:#374151;--gray-800:#1f2937;--gray-900:#111827;--green:#059669;--green-light:#d1fae5;--yellow:#d97706;--yellow-light:#fef3c7;--red:#dc2626}
+body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:var(--gray-50);color:var(--gray-900);line-height:1.6;height:100vh;display:flex;flex-direction:column}
+.header{text-align:center;padding:20px 16px 12px;border-bottom:1px solid var(--gray-200);background:#fff;flex-shrink:0}
+.header h1{font-size:18px;font-weight:700;margin-bottom:2px}
+.header p{font-size:12px;color:var(--gray-400)}
+#chat{flex:1;display:flex;flex-direction:column;max-width:720px;width:100%;margin:0 auto;padding:0 12px;overflow:hidden}
+#msgs{flex:1;overflow-y:auto;padding:16px 0;display:flex;flex-direction:column;gap:10px}
+#msgs::-webkit-scrollbar{width:4px}#msgs::-webkit-scrollbar-thumb{background:var(--gray-300);border-radius:2px}
+.msg{max-width:85%;padding:12px 16px;border-radius:12px;font-size:14px;line-height:1.6;animation:fadeIn .2s ease;word-wrap:break-word}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{background:var(--blue);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.msg.bot{background:#fff;color:var(--gray-800);align-self:flex-start;border-bottom-left-radius:4px;border:1px solid var(--gray-200)}
+.msg.bot .stage-icon{margin-right:4px}
+.msg.bot .dots::after{content:"...";animation:d 1.2s steps(4) infinite;display:inline-block;width:1.2em;text-align:left}
+@keyframes d{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}100%{content:""}}
+#input{flex-shrink:0;padding:12px 0 20px;display:flex;gap:8px;border-top:1px solid var(--gray-200);background:var(--gray-50)}
+#input input{flex:1;height:44px;padding:0 14px;border:1px solid var(--gray-300);border-radius:22px;font-size:14px;outline:none;background:#fff}
+#input input:focus{border-color:var(--blue)}
+#input button{width:44px;height:44px;border:none;border-radius:50%;background:var(--blue);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
+#input button:hover{background:var(--blue-light)}#input button:disabled{opacity:.5;cursor:not-allowed}
+#input button svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Result cards */
+.rc{border:1px solid var(--gray-200);border-radius:8px;margin-top:8px;overflow:hidden}
+.rc .ch{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--gray-100);background:var(--gray-50)}
+.rc .ch h3{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.rc .cb{padding:12px 14px;font-size:13px;line-height:1.7;white-space:pre-wrap;max-height:220px;overflow-y:auto}
+.rc .ep{padding:24px;text-align:center;color:var(--gray-400);font-size:13px}
+.btn-cp{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;font-size:11px;font-weight:500;border:1px solid var(--gray-300);border-radius:4px;background:#fff;cursor:pointer}
+.btn-cp:hover{background:var(--gray-100)}.btn-cp.ok{background:var(--green-light);border-color:var(--green);color:var(--green)}
+
+.score-row{display:flex;gap:12px;margin:8px 0;align-items:stretch}
+.score-gauge{flex:0 0 100px;text-align:center;padding:14px;border:1px solid var(--gray-200);border-radius:8px;background:#fff}
+.score-gauge .num{font-size:32px;font-weight:700;line-height:1}
+.score-gauge .lbl{font-size:11px;color:var(--gray-500);margin-top:4px}
+.score-gauge .bar{height:4px;border-radius:2px;background:var(--gray-200);margin-top:10px;overflow:hidden}
+.score-gauge .bar-in{height:100%;border-radius:2px;transition:width .6s}
 .green .num{color:var(--green)}.green .bar-in{background:var(--green)}
 .yellow .num{color:var(--yellow)}.yellow .bar-in{background:var(--yellow)}
 .red .num{color:var(--red)}.red .bar-in{background:var(--red)}
-.info{border:1px solid var(--gray-200);border-radius:8px;padding:20px 24px;background:#fff;display:flex;flex-direction:column;gap:10px}
-.info .r{display:flex;gap:8px;font-size:13px}
-.info .l{color:var(--gray-500);font-weight:500;min-width:64px}
-.info .v{color:var(--gray-800)}
-.rc{border:1px solid var(--gray-200);border-radius:8px;background:#fff;margin-bottom:16px;overflow:hidden}
-.rc .ch{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--gray-100);background:var(--gray-50)}
-.rc .ch h3{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
-.rc .cb{padding:16px 20px;font-size:13px;line-height:1.7;white-space:pre-wrap;max-height:320px;overflow-y:auto}
-.btn-cp{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;font-size:12px;font-weight:500;border:1px solid var(--gray-300);border-radius:5px;background:#fff;cursor:pointer}
-.btn-cp:hover{background:var(--gray-100)}
-.btn-cp.ok{background:var(--green-light);border-color:var(--green);color:var(--green)}
-.rc .ep{padding:32px 20px;text-align:center;color:var(--gray-400);font-size:13px}
-.alert{display:none;padding:12px 16px;border-radius:6px;font-size:13px;margin-bottom:16px}
-.alert.show{display:flex;align-items:center;gap:8px}
-.alert.err{background:var(--red-light);color:var(--red);border:1px solid #fecaca}
-.alert.ok{background:#eff6ff;color:var(--blue);border:1px solid #bfdbfe}
-.ftr{text-align:center;padding:32px 0 48px;font-size:12px;color:var(--gray-400)}
+.score-info{flex:1;display:flex;flex-direction:column;gap:6px;padding:12px 14px;border:1px solid var(--gray-200);border-radius:8px;background:#fff;font-size:12px}
+.score-info .r{display:flex;gap:6px}.score-info .l{color:var(--gray-500);font-weight:500;min-width:48px}
+.error{color:var(--red);background:#fef2f2;border:1px solid #fecaca;padding:10px 14px;border-radius:8px;font-size:13px;margin-top:8px}
+@media(max-width:480px){.msg{max-width:92%;font-size:13px}.score-row{flex-direction:column}.score-gauge{flex:none}}
 </style>
 </head>
 <body>
-<div class="container">
-  <div class="header">
-    <h1>🔀 Sales Pipeline</h1>
-    <p>B2B销售线索挖掘 · 评分 · 提案生成</p>
+<div class="header"><h1>Sales Pipeline</h1><p>B2B AI 销售线索分析助手</p></div>
+<div id="chat">
+  <div id="msgs"></div>
+  <div id="input">
+    <input type="text" id="chatInput" placeholder="请输入企业官网网址，如 https://www.bytedance.com" autocomplete="off">
+    <button id="sendBtn" disabled>
+      <svg viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+    </button>
   </div>
-  <div class="card">
-    <label>企业官网URL</label>
-    <div class="row">
-      <input type="url" id="urlIn" placeholder="https://example.com" autocomplete="url">
-      <button id="runBtn">
-        <span>▶</span>
-        <span class="btxt">分析线索</span>
-        <span class="spinner"></span>
-      </button>
-    </div>
-  </div>
-  <div id="alert" class="alert"></div>
-  <div id="results">
-    <div class="grid">
-      <div id="gauge" class="gauge">
-        <div class="num" id="scoreNum">—</div>
-        <div class="lbl">线索评分</div>
-        <div class="bar"><div class="bar-in" id="scoreBar" style="width:0%"></div></div>
-        <div class="desc" id="scoreDesc"></div>
-      </div>
-      <div class="info">
-        <div class="r"><span class="l">企业</span><span class="v" id="infCo">—</span></div>
-        <div class="r"><span class="l">行业</span><span class="v" id="infInd">—</span></div>
-        <div class="r"><span class="l">痛点</span><span class="v" id="infPain">—</span></div>
-        <div class="r"><span class="l">建议</span><span class="v" id="infSug">—</span></div>
-      </div>
-    </div>
-    <div style="margin-top:20px">
-      <div class="rc">
-        <div class="ch">
-          <h3>📧 跟进邮件</h3>
-          <button class="btn-cp" id="cpEmail">📋 复制</button>
-        </div>
-        <div class="cb" id="emailBody"><div class="ep">评分不足70分，未生成邮件</div></div>
-      </div>
-      <div class="rc">
-        <div class="ch">
-          <h3>📞 通话话术</h3>
-          <button class="btn-cp" id="cpScript">📋 复制</button>
-        </div>
-        <div class="cb" id="scriptBody"><div class="ep">评分不足70分，未生成话术</div></div>
-      </div>
-      <div class="rc">
-        <div class="ch">
-          <h3>📄 销售提案</h3>
-        </div>
-        <div class="cb" id="propBody"><div class="ep">评分不足70分，未生成提案</div></div>
-      </div>
-    </div>
-  </div>
-  <div class="ftr">Sales Automation Pipeline — Built with LangChain + LangGraph</div>
 </div>
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-  var btn = document.getElementById("runBtn");
-  var inp = document.getElementById("urlIn");
+var stages = {
+  validating: {icon: "🔗", label: "验证网址"},
+  searching: {icon: "🔍", label: "搜索企业信息"},
+  crawling: {icon: "🌐", label: "爬取官网内容"},
+  thinking: {icon: "🤔", label: "AI 分析中"},
+  analyzing: {icon: "📊", label: "评估线索"},
+  scored: {icon: "✅", label: "评分完成"},
+  researching: {icon: "🔎", label: "补充调研"},
+  generating: {icon: "📝", label: "生成销售方案"},
+  email: {icon: "📧", label: "生成跟进邮件"},
+  script: {icon: "📞", label: "生成通话话术"},
+  proposal: {icon: "📄", label: "生成销售提案"},
+  meeting: {icon: "🤝", label: "召开联合会议"},
+  done: {icon: "🎯", label: "分析完成"},
+  error: {icon: "❌", label: "出错"},
+  tool: {icon: "⚙️", label: "处理中"}
+};
 
-  // 点击按钮执行
-  btn.addEventListener("click", run);
-
-  // 回车键执行
-  inp.addEventListener("keydown", function(e) {
-    if (e.key === "Enter") run();
-  });
-
-  // 复制邮件按钮
-  document.getElementById("cpEmail").addEventListener("click", function() {
-    copyText("emailBody");
-  });
-
-  // 复制话术按钮
-  document.getElementById("cpScript").addEventListener("click", function() {
-    copyText("scriptBody");
-  });
-});
-
-// 显示消息提示
-function showMsg(m, e) {
-  var el = document.getElementById("alert");
-  el.textContent = m;
-  el.className = "alert show " + (e ? "err" : "ok");
+function addMsg(role, html) {
+  var el = document.getElementById("msgs");
+  var d = document.createElement("div");
+  d.className = "msg " + role;
+  d.innerHTML = html;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+  return d;
 }
 
-function hideMsg() {
-  document.getElementById("alert").className = "alert";
-}
+function esc(t) { return t.replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-// 复制内容
-function copyText(id) {
-  var el = document.getElementById(id);
-  var txt = el.textContent || "";
-  if (!txt || txt.indexOf("评分不足") >= 0) {
-    showMsg("没有可复制的内容", true);
-    return;
-  }
-  navigator.clipboard.writeText(txt).then(function() {
-    var btn = el.closest(".rc").querySelector(".btn-cp");
-    btn.textContent = "✓ 已复制";
-    btn.classList.add("ok");
-    setTimeout(function() {
-      btn.innerHTML = "📋 复制";
-      btn.classList.remove("ok");
-    }, 2000);
-  }).catch(function() {
-    showMsg("复制失败", true);
-  });
-}
-
-// 执行分析
-function run() {
-  var u = document.getElementById("urlIn").value.trim();
-  if (!u) {
-    showMsg("请输入企业URL", true);
-    return;
-  }
-  var btn = document.getElementById("runBtn");
-  btn.disabled = true;
-  btn.classList.add("btn-load");
-  hideMsg();
-
-  fetch("/api/analyze", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: u })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
-    if (!d.success) {
-      showMsg(d.error || "分析失败", true);
-      return;
-    }
-    showRes(d);
-    showMsg("分析完成", false);
-  })
-  .catch(function(e) {
-    showMsg("请求失败: " + e.message, true);
-  })
-  .finally(function() {
-    btn.disabled = false;
-    btn.classList.remove("btn-load");
-  });
-}
-
-// 展示结果
-function showRes(d) {
-  var s = d.score;
-  document.getElementById("results").classList.add("show");
-
-  var g = document.getElementById("gauge");
-  g.className = "gauge" + (s >= 70 ? " green" : s >= 40 ? " yellow" : " red");
-
-  document.getElementById("scoreNum").textContent = s;
-  document.getElementById("scoreBar").style.width = Math.min(s, 100) + "%";
-  document.getElementById("scoreDesc").textContent = s >= 70 ? "合格线索，进入提案阶段" : s >= 40 ? "一般线索，建议进一步验证" : "低质量线索，暂不跟进";
-
-  document.getElementById("infCo").textContent = d.company_name || "—";
-  document.getElementById("infInd").textContent = d.industry || "—";
-  document.getElementById("infPain").textContent = d.pain_points || "—";
-  document.getElementById("infSug").textContent = d.suggestion || "—";
-
-  var e1 = document.getElementById("emailBody");
-  var e2 = document.getElementById("scriptBody");
-  var e3 = document.getElementById("propBody");
+function renderResult(d) {
+  var s = d.score, cls = s >= 70 ? "green" : s >= 40 ? "yellow" : "red";
+  var desc = s >= 70 ? "合格线索，进入提案阶段" : s >= 40 ? "一般线索，建议进一步验证" : "低质量线索，暂不跟进";
+  var html = '<div class="score-row"><div class="score-gauge ' + cls + '">';
+  html += '<div class="num">' + s + '</div><div class="lbl">评分</div>';
+  html += '<div class="bar"><div class="bar-in" style="width:' + Math.min(s,100) + '%"></div></div></div>';
+  html += '<div class="score-info"><div class="r"><span class="l">企业</span><span>' + esc(d.company_name||"-") + '</span></div>';
+  html += '<div class="r"><span class="l">行业</span><span>' + esc(d.industry||"-") + '</span></div>';
+  html += '<div class="r"><span class="l">痛点</span><span>' + esc(d.pain_points||"-") + '</span></div>';
+  html += '<div class="r"><span class="l">建议</span><span>' + esc(d.suggestion||"-") + '</span></div>';
+  html += '<div class="r"><span class="l">结论</span><span>' + desc + '</span></div></div></div>';
 
   if (s >= 70) {
-    e1.textContent = d.email || "（邮件内容生成中...）";
-    e2.textContent = d.script || "（话术内容生成中...）";
-    if (d.proposal_path) {
-      // 修正了字符串拼接，使用模板字面量更安全
-      e3.innerHTML = `<a href="/download/${d.proposal_path}" style="color:var(--blue);font-weight:500">⬇ ${d.proposal_path}</a><br><span style="font-size:12px;color:var(--gray-400)">点击下载销售提案文件</span>`;
-    } else {
-      e3.innerHTML = '<div class="ep">提案已生成</div>';
-    }
-  } else {
-    e1.innerHTML = '<div class="ep">评分不足70分，未生成邮件</div>';
-    e2.innerHTML = '<div class="ep">评分不足70分，未生成话术</div>';
-    e3.innerHTML = '<div class="ep">评分不足70分，未生成提案</div>';
+    if (d.email) { var eid="e"+Date.now(); html += '<div class="rc"><div class="ch"><h3>📧 跟进邮件</h3><button class="btn-cp" onclick="cp(\''+eid+'\',this)">复制</button></div><div class="cb" id="'+eid+'">'+esc(d.email)+'</div></div>'; }
+    if (d.script) { var sid="s"+Date.now(); html += '<div class="rc"><div class="ch"><h3>📞 通话话术</h3><button class="btn-cp" onclick="cp(\''+sid+'\',this)">复制</button></div><div class="cb" id="'+sid+'">'+esc(d.script)+'</div></div>'; }
+    if (d.proposal_path) { html += '<div class="rc"><div class="ch"><h3>📄 销售提案</h3></div><div class="cb"><a href="/download/'+d.proposal_path+'" style="color:var(--blue)">下载提案文件</a></div></div>'; }
   }
+  return '<div class="bot-results">' + html + '</div>';
 }
+
+function cp(id,btn){
+  var t=document.getElementById(id).textContent;
+  if(!t)return;
+  navigator.clipboard.writeText(t).then(function(){btn.textContent="✓ 已复制";btn.classList.add("ok");setTimeout(function(){btn.innerHTML="复制";btn.classList.remove("ok")},2000);});
+}
+
+var inp=document.getElementById("chatInput"), btn=document.getElementById("sendBtn"), msgsEl=document.getElementById("msgs");
+
+function send() {
+  var msg=inp.value.trim(); if(!msg)return;
+  inp.value=""; inp.focus(); btn.disabled=true;
+  addMsg("user", esc(msg));
+
+  // Ask backend for intent judgment
+  fetch("/api/chat", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({message: msg})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if(d.action === "analyze") {
+      var url=d.url;
+      addMsg("bot", '🔗证网址...<span class="dots"></span>');
+      addMsg("bot", '🤔AI 分析中...<span class="dots"></span>');
+      var es=new EventSource("/api/chat/stream?url="+encodeURIComponent(url));
+      es.onmessage = function(e){
+        try{var p=JSON.parse(e.data)}catch(x){return}
+        var st=stages[p.stage]||{icon:"⚙️",label:p.stage};
+        var all=msgsEl.querySelectorAll(".msg.bot");
+        var last=all[all.length-1];
+        if(last) last.innerHTML='<span class="stage-icon">'+st.icon+'</span>'+esc(p.message)+'<span class="dots"></span>';
+      };
+      es.addEventListener("complete", function(e){
+        es.close(); btn.disabled=false;
+        try{var p=JSON.parse(e.data)}catch(x){addMsg("bot",'<div class="error">结果解析失败</div>');return}
+        var r=p.result; if(!r) {addMsg("bot",'<div class="error">分析异常</div>');return}
+        var reply= esc("分析完成！"+r.company_name+" 评分 "+r.score+" 分。");
+        var results=renderResult(r);
+        // Remove only thinking messages, keep conversation history
+        var bots=msgsEl.querySelectorAll(".msg.bot");
+        for(var i=bots.length-1;i>=0;i--) {
+          if(bots[i].innerHTML.indexOf("dots")!==-1) bots[i].remove();
+        }
+        addMsg("bot", reply+results);
+      });
+      es.addEventListener("error", function(e){
+        es.close(); btn.disabled=false;
+      });
+    } else {
+      addMsg("bot", esc(d.reply));
+      btn.disabled=false;
+    }
+  })
+  .catch(function(e){
+    addMsg("bot",'<div class="error">请求失败: '+e.message+'</div>');
+    btn.disabled=false;
+  });
+}
+
+inp.addEventListener("input",function(){btn.disabled=!inp.value.trim()});
+inp.addEventListener("keydown",function(e){if(e.key==="Enter")send()});
+btn.addEventListener("click",send);
+addMsg("bot","你好！请提供企业官网网址，例如 https://www.bytedance.com。我会分析该企业的线索价值并生成销售方案。");
 </script>
 </body>
 </html>

@@ -1,60 +1,71 @@
-﻿import time
-import random
-from core.tools.toolkit import *
+﻿import json
+from core.agent.runner import run_agent
+from core.tools.toolkit import (
+    web_search_tool, web_crawl_tool, analyze_lead_tool,
+    generate_email_tool, generate_script_tool, generate_proposal_tool,
+)
 
-def lead_master_node(state: dict):
+LEAD_MASTER_TOOLS = [web_search_tool, web_crawl_tool, analyze_lead_tool]
+
+LEAD_MASTER_PROMPT = (
+    "You are Lead Master, a B2B lead research and scoring specialist."
+    " Tools: web_search_tool, web_crawl_tool, analyze_lead_tool."
+    " Workflow: search, crawl, then analyze_lead. Return the final score."
+)
+
+
+def lead_master_node(state: dict, progress_callback=None):
     company_url = state["company_url"]
     company_name = company_url.split("//")[-1].split("/")[0]
 
     feedback_req = state.get("feedback_request", "")
     if feedback_req:
-        print(f"\n[Lead Master] Feedback research: {feedback_req}")
-        search_result = web_search(f"{company_name} {feedback_req}")
-        crawl_result = web_crawl(company_url)
-        new_info = {
-            "search_data": search_result,
-            "crawl_data": str(crawl_result)[:1000],
-            "feedback_research": str(search_result)[:1000],
-        }
-        log_entry = {
-            "agent": "Lead Master",
-            "action": "Feedback research",
-            "detail": feedback_req,
-            "round": state.get("research_round", 0) + 1,
-        }
+        if progress_callback:
+            progress_callback("researching", "正在补充调研信息...")
+        result = run_agent(
+            LEAD_MASTER_PROMPT, LEAD_MASTER_TOOLS,
+            f"Research {company_name} at {company_url}, focusing on: {feedback_req}",
+            progress_callback=progress_callback
+        )
         return {
-            "lead_info": {**state.get("lead_info", {}), **new_info},
+            "lead_info": {**state.get("lead_info", {}), "feedback_research": str(result["tool_results"])},
             "feedback_request": "",
             "research_round": state.get("research_round", 0) + 1,
-            "agent_log": [log_entry],
+            "agent_log": [{"agent": "Lead Master", "action": "Feedback research", "detail": feedback_req, "round": state.get("research_round", 0) + 1}],
         }
 
-    # Initial research
-    print("\n[Lead Master] Mining lead...")
-    search_result = web_search(f"{company_name} company intro business scale industry")
-    crawl_result = web_crawl(company_url)
-    result = analysis(company_name, search_result, crawl_result)
+    if progress_callback:
+        progress_callback("searching", "正在搜索企业信息...")
 
-    lead_info = {
-        "company_name": company_name,
-        "website": state["company_url"],
-        "search_data": search_result,
-        "crawl_data": str(crawl_result)[:1000],
-        "industry": result.get("industry", ""),
-        "pain_points": result.get("pain_points", ""),
-        "suggestion": result.get("suggestion", ""),
-    }
-    score = result.get("score", 0)
+    result = run_agent(
+        LEAD_MASTER_PROMPT, LEAD_MASTER_TOOLS,
+        f"Research and score this lead: {company_name} ({company_url})",
+        progress_callback=progress_callback
+    )
+
+    score = 0
+    lead_info = {"company_name": company_name, "website": company_url,
+                 "search_data": "", "crawl_data": "",
+                 "industry": "", "pain_points": "", "suggestion": ""}
+
+    analyze_raw = result["tool_results"].get("analyze_lead_tool", [])
+    if analyze_raw:
+        try:
+            data = json.loads(analyze_raw[-1])
+            score = data.get("score", 0)
+            lead_info = {
+                "company_name": data.get("company_name", "") or company_name,
+                "website": company_url,
+                "search_data": str(result["tool_results"].get("web_search_tool", [""])[-1:]),
+                "crawl_data": str(result["tool_results"].get("web_crawl_tool", [""])[-1:]),
+                "industry": data.get("industry", ""),
+                "pain_points": data.get("pain_points", ""),
+                "suggestion": data.get("suggestion", ""),
+            }
+        except Exception:
+            pass
 
     print(f"[Lead Master] Score: {score}")
-
-    log_entry = {
-        "agent": "Lead Master",
-        "action": "Initial research & scoring",
-        "detail": f"Score: {score}, Industry: {lead_info.get('industry', '')}",
-        "round": 0,
-    }
-
     return {
         "lead_info": lead_info,
         "lead_score": score,
@@ -62,55 +73,53 @@ def lead_master_node(state: dict):
         "feedback_request": "",
         "research_round": 0,
         "max_rounds": 3,
-        "agent_log": [log_entry],
+        "agent_log": [{"agent": "Lead Master", "action": "Research & scoring", "detail": f"Score: {score}", "round": 0}],
         "joint_decision": "",
     }
 
 
-def proposal_crafter_node(state: dict):
-    print("\n[Proposal Crafter] Analyzing lead...")
+PROPOSAL_TOOLS = [generate_email_tool, generate_script_tool, generate_proposal_tool]
+
+PROPOSAL_PROMPT = (
+    "You are Proposal Crafter, a B2B proposal generation specialist."
+    " Tools: generate_email_tool, generate_script_tool, generate_proposal_tool (call LAST)."
+    " Generate all three items."
+)
+
+
+def proposal_crafter_node(state: dict, progress_callback=None):
     lead = state["lead_info"]
 
-    think_time = random.uniform(0.5, 2.0)
-    print(f"[Proposal Crafter] Thinking ({think_time:.1f}s)...")
-    time.sleep(think_time)
-
     gaps = []
-    if not lead.get("industry"):
-        gaps.append("Missing industry info")
-    if not lead.get("pain_points"):
-        gaps.append("Missing pain points")
-    if not lead.get("suggestion"):
-        gaps.append("Missing follow-up suggestion")
+    if not lead.get("industry"): gaps.append("Missing industry info")
+    if not lead.get("pain_points"): gaps.append("Missing pain points")
+    if not lead.get("suggestion"): gaps.append("Missing follow-up suggestion")
 
     current_round = state.get("research_round", 0)
     max_rounds = state.get("max_rounds", 3)
 
     if gaps and current_round < max_rounds:
-        feedback_q = "Need more details: " + ", ".join(gaps) + " for " + lead.get("company_name", "this company")
-        log_entry = {
-            "agent": "Proposal Crafter",
-            "action": "Requested additional info",
-            "detail": feedback_q,
-            "round": current_round + 1,
-        }
         return {
             "info_gaps": gaps,
-            "feedback_request": feedback_q,
-            "agent_log": [log_entry],
+            "feedback_request": "Need: " + ", ".join(gaps) + " for " + lead.get("company_name", "company"),
+            "agent_log": [{"agent": "Proposal Crafter", "action": "Requested additional info", "detail": ", ".join(gaps), "round": current_round + 1}],
         }
 
-    print("[Proposal Crafter] Generating proposal, email, script...")
-    prop = generate_proposal(lead)
-    email = generate_email(lead)
-    script = generate_script(lead)
+    if progress_callback:
+        progress_callback("generating", "正在生成销售方案...")
 
-    log_entry = {
-        "agent": "Proposal Crafter",
-        "action": "Generated proposal package",
-        "detail": "Proposal: " + (prop or "N/A"),
-        "round": current_round,
-    }
+    lead_str = (
+        f"Company: {lead.get('company_name', '')}\n"
+        f"Industry: {lead.get('industry', '')}\n"
+        f"Pain Points: {lead.get('pain_points', '')}\n"
+        f"Suggestion: {lead.get('suggestion', '')}"
+    )
+
+    result = run_agent(PROPOSAL_PROMPT, PROPOSAL_TOOLS, lead_str, progress_callback=progress_callback)
+
+    email = "".join(result["tool_results"].get("generate_email_tool", [])) or ""
+    script = "".join(result["tool_results"].get("generate_script_tool", [])) or ""
+    prop = "".join(result["tool_results"].get("generate_proposal_tool", [])) or ""
 
     return {
         "proposal_path": prop,
@@ -118,12 +127,14 @@ def proposal_crafter_node(state: dict):
         "script": script,
         "info_gaps": [],
         "feedback_request": "",
-        "agent_log": [log_entry],
+        "agent_log": [{"agent": "Proposal Crafter", "action": "Generated proposal package", "detail": "Done", "round": current_round}],
     }
 
 
-def joint_meeting_node(state: dict):
-    print("\n[Joint Meeting] Lead Master + Proposal Crafter meeting...")
+def joint_meeting_node(state: dict, progress_callback=None):
+    if progress_callback:
+        progress_callback("meeting", "正在召开联合会议...")
+
     lead = state["lead_info"]
     score = state.get("lead_score", 0)
     log = state.get("agent_log", [])
@@ -139,17 +150,10 @@ def joint_meeting_node(state: dict):
         "Both agents confirm alignment on pain points and solution approach."
     )
 
-    log_entry = {
-        "agent": "Joint Meeting",
-        "action": "Internal strategy meeting",
-        "detail": meeting_notes,
-    }
-
     print("[Joint Meeting] " + meeting_notes.replace("\n", " | "))
-
     return {
         "joint_decision": meeting_notes,
-        "agent_log": [log_entry],
+        "agent_log": [{"agent": "Joint Meeting", "action": "Internal strategy meeting", "detail": meeting_notes}],
         "proposal_path": state.get("proposal_path", ""),
         "followup_email": state.get("followup_email", ""),
         "script": state.get("script", ""),

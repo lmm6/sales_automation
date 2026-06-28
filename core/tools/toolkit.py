@@ -2,10 +2,8 @@ import json
 import os
 
 import requests
-import tavily
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from langchain.chat_models import init_chat_model
 
 from core.prompt.analysis import (
     ANALYSIS_PROMPT,
@@ -15,22 +13,12 @@ from core.prompt.analysis import (
 )
 
 load_dotenv()
-tavily = tavily.TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
-
-# 初始化分析结果LLM
-analysis_llm = init_chat_model(
-    model="deepseek-chat",
-    temperature=0.1
-)
-#暂时
-llm = init_chat_model(
-    model="deepseek-chat",
-    temperature=0.1
-)
 
 def web_search(query: str):
     try:
-        response = tavily.search(
+        import tavily
+        tavily_client = tavily.TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+        response = tavily_client.search(
             query=query,
             search_depth="advanced",
             max_results=5
@@ -58,6 +46,8 @@ def web_crawl(url: str):
         return "无法抓取"
 
 def analysis(company_name, search_data, crawl_data):
+    from langchain.chat_models import init_chat_model
+    llm = init_chat_model(model="deepseek-chat", temperature=0.1)
     """修复：正确填充 prompt 模板 → LLM 评分"""
     prompt = ANALYSIS_PROMPT.format(
         company_name=company_name,
@@ -65,7 +55,7 @@ def analysis(company_name, search_data, crawl_data):
         crawl_data=str(crawl_data)[:2000] if crawl_data else "无",
     )
     try:
-        resp = analysis_llm.invoke([{"role": "system", "content": prompt},
+        resp = llm.invoke([{"role": "system", "content": prompt},
                            {"role": "user", "content": "请分析以上企业信息并返回 JSON 评分结果"}])
         text = resp.content.strip()
         text = text.split("```json")[-1].split("```")[0].strip() if "```" in text else text
@@ -85,6 +75,8 @@ def generate_proposal(lead: dict):
 
 def generate_email(lead):
     try:
+        from langchain.chat_models import init_chat_model
+        llm = init_chat_model(model="deepseek-chat", temperature=0.1)
         return llm.invoke([{"role": "user", "content":
             f"写一封 B2B 跟进邮件给 {lead.get('company_name','')}，痛点：{lead.get('pain_points','')}，只输出正文"}]).content.strip()
     except:
@@ -92,20 +84,67 @@ def generate_email(lead):
 
 def generate_script(lead):
     try:
+        from langchain.chat_models import init_chat_model
+        llm = init_chat_model(model="deepseek-chat", temperature=0.1)
         return llm.invoke([{"role": "user", "content":
             f"写一通电话销售话术给 {lead.get('company_name','')}，痛点：{lead.get('pain_points','')}，只输出话术"}]).content.strip()
     except:
-        return "您好，我是 XX 公司销售代表..."
-
-if __name__ == "__main__":
-    test_lead = {
-        "公司": "某新零售科技有限公司",
-        "职位": "CTO",
-        "需求": "需要搭建智能客服系统，对接企业微信",
-        "预算": "30-50万",
-        "紧急程度": "1个月内上线",
-        "竞品接触": "已了解过智齿科技、网易七鱼"
-    }
-    base_result = analysis(test_lead)
-    print("=== 评分结果 ===")
-    print(json.dumps(base_result, ensure_ascii=False, indent=2))
+        return "您好，我是 XX 公司销售代表..."
+
+from langchain_core.tools import tool
+
+
+@tool
+def web_search_tool(query: str) -> str:
+    "Search the web for company information."
+    result = web_search(query)
+    return json.dumps(result, ensure_ascii=False) if isinstance(result, list) else str(result)
+
+
+@tool
+def web_crawl_tool(url: str) -> str:
+    "Crawl a company website to extract content."
+    return str(web_crawl(url))
+
+
+@tool
+def analyze_lead_tool(company_name: str, search_data: str, crawl_data: str) -> str:
+    "Analyze and score a B2B lead."
+    result = analysis(company_name, search_data, crawl_data)
+    return json.dumps(result, ensure_ascii=False)
+
+
+@tool
+def generate_email_tool(company_name: str, industry: str, pain_points: str, suggestion: str) -> str:
+    "Generate a follow-up email for a lead."
+    lead = {
+        "company_name": company_name,
+        "industry": industry,
+        "pain_points": pain_points,
+        "suggestion": suggestion,
+    }
+    return generate_email(lead)
+
+
+@tool
+def generate_script_tool(company_name: str, industry: str, pain_points: str, suggestion: str) -> str:
+    "Generate a sales call script for a lead."
+    lead = {
+        "company_name": company_name,
+        "industry": industry,
+        "pain_points": pain_points,
+        "suggestion": suggestion,
+    }
+    return generate_script(lead)
+
+
+@tool
+def generate_proposal_tool(company_name: str, industry: str, pain_points: str, suggestion: str) -> str:
+    "Generate a sales proposal document for a lead."
+    lead = {
+        "company_name": company_name,
+        "industry": industry,
+        "pain_points": pain_points,
+        "suggestion": suggestion,
+    }
+    return generate_proposal(lead)
