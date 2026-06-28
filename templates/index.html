@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Pipeline</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--blue:#1a56db;--blue-light:#2563eb;--gray-50:#f9fafb;--gray-100:#f3f4f6;--gray-200:#e5e7eb;--gray-300:#d1d5db;--gray-400:#9ca3af;--gray-500:#6b7280;--gray-600:#4b5563;--gray-700:#374151;--gray-800:#1f2937;--gray-900:#111827;--green:#059669;--green-light:#d1fae5;--yellow:#d97706;--yellow-light:#fef3c7;--red:#dc2626;--radius:8px}
+body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:var(--gray-50);color:var(--gray-900);line-height:1.6}
+.container{max-width:880px;margin:0 auto;padding:24px 20px}
+.header{text-align:center;padding:40px 0 32px}
+.header h1{font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px}
+.header p{font-size:14px;color:var(--gray-500);margin-top:4px}
+.card{background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:24px;margin-bottom:24px}
+.card label{font-size:13px;font-weight:600;display:block;margin-bottom:8px}
+.row{display:flex;gap:10px}
+.row input{flex:1;height:42px;padding:0 14px;border:1px solid var(--gray-300);border-radius:6px;font-size:14px;outline:none}
+.row input:focus{border-color:var(--blue)}
+.row button{height:42px;padding:0 20px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.row button:hover{background:var(--blue-light)}
+.row button:disabled{opacity:.6}
+.spinner{display:none;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:s .6s linear infinite}
+.btn-load .spinner{display:inline-block}
+.btn-load .btxt{display:none}
+@keyframes s{to{transform:rotate(360deg)}}
+#results{display:none;margin-bottom:24px}
+#results.show{display:block}
+.grid{display:grid;grid-template-columns:200px 1fr;gap:16px}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+.gauge{border:1px solid var(--gray-200);border-radius:8px;padding:24px;text-align:center;background:#fff}
+.gauge .num{font-size:48px;font-weight:700;line-height:1}
+.gauge .lbl{font-size:12px;color:var(--gray-500)}
+.gauge .bar{height:6px;border-radius:3px;background:var(--gray-200);margin-top:16px;overflow:hidden}
+.gauge .bar-in{height:100%;border-radius:3px;transition:width .6s}
+.gauge .desc{font-size:13px;color:var(--gray-600);margin-top:16px}
+.green .num{color:var(--green)}.green .bar-in{background:var(--green)}
+.yellow .num{color:var(--yellow)}.yellow .bar-in{background:var(--yellow)}
+.red .num{color:var(--red)}.red .bar-in{background:var(--red)}
+.info{border:1px solid var(--gray-200);border-radius:8px;padding:20px 24px;background:#fff;display:flex;flex-direction:column;gap:10px}
+.info .r{display:flex;gap:8px;font-size:13px}
+.info .l{color:var(--gray-500);font-weight:500;min-width:64px}
+.info .v{color:var(--gray-800)}
+.rc{border:1px solid var(--gray-200);border-radius:8px;background:#fff;margin-bottom:16px;overflow:hidden}
+.rc .ch{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--gray-100);background:var(--gray-50)}
+.rc .ch h3{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.rc .cb{padding:16px 20px;font-size:13px;line-height:1.7;white-space:pre-wrap;max-height:320px;overflow-y:auto}
+.btn-cp{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;font-size:12px;font-weight:500;border:1px solid var(--gray-300);border-radius:5px;background:#fff;cursor:pointer}
+.btn-cp:hover{background:var(--gray-100)}
+.btn-cp.ok{background:var(--green-light);border-color:var(--green);color:var(--green)}
+.rc .ep{padding:32px 20px;text-align:center;color:var(--gray-400);font-size:13px}
+.alert{display:none;padding:12px 16px;border-radius:6px;font-size:13px;margin-bottom:16px}
+.alert.show{display:flex;align-items:center;gap:8px}
+.alert.err{background:var(--red-light);color:var(--red);border:1px solid #fecaca}
+.alert.ok{background:#eff6ff;color:var(--blue);border:1px solid #bfdbfe}
+.ftr{text-align:center;padding:32px 0 48px;font-size:12px;color:var(--gray-400)}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🔀 Sales Pipeline</h1>
+    <p>B2B销售线索挖掘 · 评分 · 提案生成</p>
+  </div>
+  <div class="card">
+    <label>企业官网URL</label>
+    <div class="row">
+      <input type="url" id="urlIn" placeholder="https://example.com" autocomplete="url">
+      <button id="runBtn">
+        <span>▶</span>
+        <span class="btxt">分析线索</span>
+        <span class="spinner"></span>
+      </button>
+    </div>
+  </div>
+  <div id="alert" class="alert"></div>
+  <div id="results">
+    <div class="grid">
+      <div id="gauge" class="gauge">
+        <div class="num" id="scoreNum">—</div>
+        <div class="lbl">线索评分</div>
+        <div class="bar"><div class="bar-in" id="scoreBar" style="width:0%"></div></div>
+        <div class="desc" id="scoreDesc"></div>
+      </div>
+      <div class="info">
+        <div class="r"><span class="l">企业</span><span class="v" id="infCo">—</span></div>
+        <div class="r"><span class="l">行业</span><span class="v" id="infInd">—</span></div>
+        <div class="r"><span class="l">痛点</span><span class="v" id="infPain">—</span></div>
+        <div class="r"><span class="l">建议</span><span class="v" id="infSug">—</span></div>
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <div class="rc">
+        <div class="ch">
+          <h3>📧 跟进邮件</h3>
+          <button class="btn-cp" id="cpEmail">📋 复制</button>
+        </div>
+        <div class="cb" id="emailBody"><div class="ep">评分不足70分，未生成邮件</div></div>
+      </div>
+      <div class="rc">
+        <div class="ch">
+          <h3>📞 通话话术</h3>
+          <button class="btn-cp" id="cpScript">📋 复制</button>
+        </div>
+        <div class="cb" id="scriptBody"><div class="ep">评分不足70分，未生成话术</div></div>
+      </div>
+      <div class="rc">
+        <div class="ch">
+          <h3>📄 销售提案</h3>
+        </div>
+        <div class="cb" id="propBody"><div class="ep">评分不足70分，未生成提案</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="ftr">Sales Automation Pipeline — Built with LangChain + LangGraph</div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  var btn = document.getElementById("runBtn");
+  var inp = document.getElementById("urlIn");
+
+  // 点击按钮执行
+  btn.addEventListener("click", run);
+
+  // 回车键执行
+  inp.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") run();
+  });
+
+  // 复制邮件按钮
+  document.getElementById("cpEmail").addEventListener("click", function() {
+    copyText("emailBody");
+  });
+
+  // 复制话术按钮
+  document.getElementById("cpScript").addEventListener("click", function() {
+    copyText("scriptBody");
+  });
+});
+
+// 显示消息提示
+function showMsg(m, e) {
+  var el = document.getElementById("alert");
+  el.textContent = m;
+  el.className = "alert show " + (e ? "err" : "ok");
+}
+
+function hideMsg() {
+  document.getElementById("alert").className = "alert";
+}
+
+// 复制内容
+function copyText(id) {
+  var el = document.getElementById(id);
+  var txt = el.textContent || "";
+  if (!txt || txt.indexOf("评分不足") >= 0) {
+    showMsg("没有可复制的内容", true);
+    return;
+  }
+  navigator.clipboard.writeText(txt).then(function() {
+    var btn = el.closest(".rc").querySelector(".btn-cp");
+    btn.textContent = "✓ 已复制";
+    btn.classList.add("ok");
+    setTimeout(function() {
+      btn.innerHTML = "📋 复制";
+      btn.classList.remove("ok");
+    }, 2000);
+  }).catch(function() {
+    showMsg("复制失败", true);
+  });
+}
+
+// 执行分析
+function run() {
+  var u = document.getElementById("urlIn").value.trim();
+  if (!u) {
+    showMsg("请输入企业URL", true);
+    return;
+  }
+  var btn = document.getElementById("runBtn");
+  btn.disabled = true;
+  btn.classList.add("btn-load");
+  hideMsg();
+
+  fetch("/api/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: u })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (!d.success) {
+      showMsg(d.error || "分析失败", true);
+      return;
+    }
+    showRes(d);
+    showMsg("分析完成", false);
+  })
+  .catch(function(e) {
+    showMsg("请求失败: " + e.message, true);
+  })
+  .finally(function() {
+    btn.disabled = false;
+    btn.classList.remove("btn-load");
+  });
+}
+
+// 展示结果
+function showRes(d) {
+  var s = d.score;
+  document.getElementById("results").classList.add("show");
+
+  var g = document.getElementById("gauge");
+  g.className = "gauge" + (s >= 70 ? " green" : s >= 40 ? " yellow" : " red");
+
+  document.getElementById("scoreNum").textContent = s;
+  document.getElementById("scoreBar").style.width = Math.min(s, 100) + "%";
+  document.getElementById("scoreDesc").textContent = s >= 70 ? "合格线索，进入提案阶段" : s >= 40 ? "一般线索，建议进一步验证" : "低质量线索，暂不跟进";
+
+  document.getElementById("infCo").textContent = d.company_name || "—";
+  document.getElementById("infInd").textContent = d.industry || "—";
+  document.getElementById("infPain").textContent = d.pain_points || "—";
+  document.getElementById("infSug").textContent = d.suggestion || "—";
+
+  var e1 = document.getElementById("emailBody");
+  var e2 = document.getElementById("scriptBody");
+  var e3 = document.getElementById("propBody");
+
+  if (s >= 70) {
+    e1.textContent = d.email || "（邮件内容生成中...）";
+    e2.textContent = d.script || "（话术内容生成中...）";
+    if (d.proposal_path) {
+      // 修正了字符串拼接，使用模板字面量更安全
+      e3.innerHTML = `<a href="/download/${d.proposal_path}" style="color:var(--blue);font-weight:500">⬇ ${d.proposal_path}</a><br><span style="font-size:12px;color:var(--gray-400)">点击下载销售提案文件</span>`;
+    } else {
+      e3.innerHTML = '<div class="ep">提案已生成</div>';
+    }
+  } else {
+    e1.innerHTML = '<div class="ep">评分不足70分，未生成邮件</div>';
+    e2.innerHTML = '<div class="ep">评分不足70分，未生成话术</div>';
+    e3.innerHTML = '<div class="ep">评分不足70分，未生成提案</div>';
+  }
+}
+</script>
+</body>
+</html>
