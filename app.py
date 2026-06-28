@@ -1,4 +1,4 @@
-import os, sys
+﻿import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, render_template, request, jsonify, send_from_directory
@@ -8,9 +8,9 @@ load_dotenv()
 os.environ["OPENAI_API_KEY"] = os.getenv("DEEPSEEK_API_KEY", "")
 os.environ["OPENAI_API_BASE"] = os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com/v1")
 
-import requests
 from core.agent.loader import load_agent_profile
 from core.tools.toolkit import generate_email, generate_script
+from core.tools.check_web import validate_url
 from graph.workflow import build_sales_graph
 
 app = Flask(__name__)
@@ -28,6 +28,9 @@ def analyze():
     company_url = (data.get("url") or "").strip()
     if not company_url:
         return jsonify({"success": False, "error": "请输入企业URL"}), 400
+    ok, err = validate_url(company_url)
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
 
     try:
         lead_agent = load_agent_profile("profiles/lead_master.yaml")
