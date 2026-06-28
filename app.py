@@ -1,4 +1,4 @@
-﻿import os, sys
+import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, render_template, request, jsonify, send_from_directory, Response, stream_with_context
@@ -23,6 +23,7 @@ def index():
 @app.route("/api/chat/stream")
 def chat_stream():
     url = request.args.get("url", "").strip()
+    intent = request.args.get("intent", "score").strip()
     if not url:
         return jsonify({"error": "请提供企业网址"}), 400
 
@@ -44,6 +45,7 @@ def chat_stream():
                 "company_url": url,
                 "lead_info": {},
                 "lead_score": 0,
+                "intent": intent,
                 "proposal_path": "",
                 "followup_email": "",
                 "script": "",
@@ -66,43 +68,49 @@ def chat_stream():
 
             if score < 80:
                 yield sse("scored", f"线索评分：{score}分，低于80分跳过提案阶段")
-                result = build_result(state)
+                result = build_result(state, intent)
                 yield "event: complete\ndata: " + json.dumps({"result": result}, ensure_ascii=False) + "\n\n"
                 return
 
             yield sse("scored", f"线索评分：{score}分，进入提案阶段")
 
             # Phase 2: Proposal Crafter (with feedback loop)
-            for rnd in range(4):
-                state = {**state, **proposal_crafter_node(state, progress_callback=on_progress)}
-                for st, msg in progress["events"]:
-                    yield sse(st, msg)
-                progress["events"].clear()
-
-                if state.get("feedback_request"):
-                    yield sse("researching", "正在补充调研信息...")
-                    state = {**state, **lead_master_node(state, progress_callback=on_progress)}
+            if intent in ("email", "script", "proposal", "all"):
+                for rnd in range(4):
+                    state = {**state, **proposal_crafter_node(state, progress_callback=on_progress)}
                     for st, msg in progress["events"]:
                         yield sse(st, msg)
                     progress["events"].clear()
-                else:
-                    break
+
+                    if state.get("feedback_request"):
+                        yield sse("researching", "正在补充调研信息...")
+                        state = {**state, **lead_master_node(state, progress_callback=on_progress)}
+                        for st, msg in progress["events"]:
+                            yield sse(st, msg)
+                        progress["events"].clear()
+                    else:
+                        break
 
             # Phase 3: Joint Meeting
-            yield sse("meeting", "正在召开联合会议...")
-            state = {**state, **joint_meeting_node(state)}
+                yield sse("meeting", "正在召开联合会议...")
+                state = {**state, **joint_meeting_node(state)}
+            else:
+                yield sse("done", "分析完成（仅评分）")
 
             # Build final result
-            yield "event: complete\ndata: " + json.dumps({"result": build_result(state)}, ensure_ascii=False) + "\n\n"
+            yield "event: complete\ndata: " + json.dumps({"result": build_result(state, intent)}, ensure_ascii=False) + "\n\n"
 
         except Exception as e:
             import traceback
-            yield sse("error", "分析出错: " + str(e))
+            error_detail = traceback.format_exc()
+            print("=== ERROR ===")
+            print(error_detail)
+            yield sse("error", "分析出错: " + str(e) + " | " + error_detail[-200:])
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
-def build_result(state):
+def build_result(state, intent="score"):
     lead = state.get("lead_info", {}) or {}
     score = state.get("lead_score", 0) or 0
     return {
@@ -118,6 +126,35 @@ def build_result(state):
 
 
 
+def detect_intent(message):
+    try:
+        from langchain.chat_models import init_chat_model
+        from langchain_core.messages import SystemMessage, HumanMessage
+        import json as jm
+        prompt = "You are an intent classifier. Given a user message about a company URL, determine the user intent. Reply with ONLY a JSON object:\\n"
+        prompt += '{"intent": "score"} - analyze/score\\n'
+        prompt += '{"intent": "email"} - generate email\\n'
+        prompt += '{"intent": "script"} - generate script\\n'
+        prompt += '{"intent": "proposal"} - generate proposal\\n'
+        prompt += '{"intent": "all"} - generate email+script+proposal\\n'
+        prompt += 'Example: "write an email for this lead" -> {"intent": "email"}'
+        llm = init_chat_model("deepseek-chat", temperature=0)
+        resp = llm.invoke([SystemMessage(content=prompt), HumanMessage(content=message)])
+        result = jm.loads(resp.content.strip())
+        intent = result.get("intent", "")
+        if intent in ("score", "email", "script", "proposal", "all"):
+            return intent
+    except Exception:
+        pass
+    msg = message.lower()
+    kws = {"email": ["email","mail"], "script": ["script","call"], "proposal": ["proposal"], "all": ["all","complete","full"]}
+    for k, words in kws.items():
+        if any(w in msg for w in words):
+            return k
+    return "score"
+
+
+
 @app.route("/api/chat", methods=["POST"])
 def chat():
     data = request.get_json()
@@ -127,7 +164,8 @@ def chat():
     url_match = re.search(r'https?://[^\s]+', message)
     if url_match:
         url = url_match.group(0).rstrip(",.;!?)")
-        return jsonify({"action": "analyze", "url": url})
+        intent = detect_intent(message)
+        return jsonify({"action": "analyze", "url": url, "intent": intent})
 
     system_prompt = (
         "你是 Sales Pipeline 销售助手，帮用户分析B2B销售线索。\n"
@@ -155,3 +193,5 @@ def download_file(filename):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
+

@@ -48,7 +48,14 @@ def run_agent(system_prompt, tools, user_message, temperature=0.1, max_turns=10,
         for tc in response.tool_calls:
             name = tc["name"]
             args = tc["args"]
-            matched = next(t for t in tools if t.name == name)
+            matched = None
+            for t in tools:
+                if t.name == name:
+                    matched = t
+                    break
+            if matched is None:
+                messages.append(ToolMessage(content="not available", tool_call_id=tc["id"]))
+                continue
 
             stage = STAGE_MAP.get(name, "tool")
             msg = MSG_MAP.get(name, "正在执行 " + name + "...")

@@ -139,7 +139,7 @@ function send() {
       var url=d.url;
       addMsg("bot", '🔗证网址...<span class="dots"></span>');
       addMsg("bot", '🤔AI 分析中...<span class="dots"></span>');
-      var es=new EventSource("/api/chat/stream?url="+encodeURIComponent(url));
+      var es=new EventSource("/api/chat/stream?url="+encodeURIComponent(url)+"&intent="+encodeURIComponent(d.intent||"score"));
       es.onmessage = function(e){
         try{var p=JSON.parse(e.data)}catch(x){return}
         var st=stages[p.stage]||{icon:"⚙️",label:p.stage};

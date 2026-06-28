@@ -1,4 +1,4 @@
-﻿import json
+import json
 from core.agent.runner import run_agent
 from core.tools.toolkit import (
     web_search_tool, web_crawl_tool, analyze_lead_tool,
@@ -7,14 +7,10 @@ from core.tools.toolkit import (
 
 LEAD_MASTER_TOOLS = [web_search_tool, web_crawl_tool, analyze_lead_tool]
 
-LEAD_MASTER_PROMPT = (
-    "You are Lead Master, a B2B lead research and scoring specialist."
-    " Tools: web_search_tool, web_crawl_tool, analyze_lead_tool."
-    " Workflow: search, crawl, then analyze_lead. Return the final score."
-)
-
-
 def lead_master_node(state: dict, progress_callback=None):
+    prompt = state["lead_agent"].prompt
+    if not prompt:
+        prompt = "You are Lead Master, a B2B lead research and scoring specialist. Tools: web_search_tool, web_crawl_tool, analyze_lead_tool. Workflow: search, crawl, then analyze_lead. Return the final score."
     company_url = state["company_url"]
     company_name = company_url.split("//")[-1].split("/")[0]
 
@@ -23,7 +19,7 @@ def lead_master_node(state: dict, progress_callback=None):
         if progress_callback:
             progress_callback("researching", "正在补充调研信息...")
         result = run_agent(
-            LEAD_MASTER_PROMPT, LEAD_MASTER_TOOLS,
+            prompt, LEAD_MASTER_TOOLS,
             f"Research {company_name} at {company_url}, focusing on: {feedback_req}",
             progress_callback=progress_callback
         )
@@ -37,9 +33,9 @@ def lead_master_node(state: dict, progress_callback=None):
     if progress_callback:
         progress_callback("searching", "正在搜索企业信息...")
 
-    result = run_agent(
-        LEAD_MASTER_PROMPT, LEAD_MASTER_TOOLS,
-        f"Research and score this lead: {company_name} ({company_url})",
+        result = run_agent(
+            prompt, LEAD_MASTER_TOOLS,
+            f"Research and score this lead: {company_name} ({company_url})",
         progress_callback=progress_callback
     )
 
@@ -80,15 +76,23 @@ def lead_master_node(state: dict, progress_callback=None):
 
 PROPOSAL_TOOLS = [generate_email_tool, generate_script_tool, generate_proposal_tool]
 
-PROPOSAL_PROMPT = (
-    "You are Proposal Crafter, a B2B proposal generation specialist."
-    " Tools: generate_email_tool, generate_script_tool, generate_proposal_tool (call LAST)."
-    " Generate all three items."
-)
-
-
 def proposal_crafter_node(state: dict, progress_callback=None):
+    prompt = state["proposal_agent"].prompt
+    if not prompt:
+        prompt = "You are Proposal Crafter, a B2B proposal generation specialist. Tools: generate_email_tool, generate_script_tool, generate_proposal_tool (call LAST). Generate all three items."
     lead = state["lead_info"]
+    intent = state.get("intent", "all")
+    tools = PROPOSAL_TOOLS
+    if intent == "email":
+        tools = [generate_email_tool]
+        prompt += " Only use: generate_email_tool."
+    elif intent == "script":
+        tools = [generate_script_tool]
+        prompt += " Only use: generate_script_tool."
+    elif intent == "proposal":
+        tools = [generate_proposal_tool]
+        prompt += " Only use: generate_proposal_tool."
+
 
     gaps = []
     if not lead.get("industry"): gaps.append("Missing industry info")
@@ -115,11 +119,17 @@ def proposal_crafter_node(state: dict, progress_callback=None):
         f"Suggestion: {lead.get('suggestion', '')}"
     )
 
-    result = run_agent(PROPOSAL_PROMPT, PROPOSAL_TOOLS, lead_str, progress_callback=progress_callback)
+    result = run_agent(prompt, tools, lead_str, progress_callback=progress_callback)
 
-    email = "".join(result["tool_results"].get("generate_email_tool", [])) or ""
-    script = "".join(result["tool_results"].get("generate_script_tool", [])) or ""
-    prop = "".join(result["tool_results"].get("generate_proposal_tool", [])) or ""
+    email = ""
+    script = ""
+    prop = ""
+    if intent in ("email", "all"):
+        email = "".join(result["tool_results"].get("generate_email_tool", [])) or ""
+    if intent in ("script", "all"):
+        script = "".join(result["tool_results"].get("generate_script_tool", [])) or ""
+    if intent in ("proposal", "all"):
+        prop = "".join(result["tool_results"].get("generate_proposal_tool", [])) or ""
 
     return {
         "proposal_path": prop,

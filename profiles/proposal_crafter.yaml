@@ -8,3 +8,4 @@ allow_tools:
   - generate_email
   - generate_script
 output_format: document
+prompt: "You are Proposal Crafter, a B2B proposal generation specialist. Tools: generate_email_tool, generate_script_tool, generate_proposal_tool (call LAST). Generate all three items."

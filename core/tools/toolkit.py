@@ -77,7 +77,9 @@ def generate_email(lead):
     try:
         from langchain.chat_models import init_chat_model
         llm = init_chat_model(model="deepseek-chat", temperature=0.1)
-        return llm.invoke([{"role": "user", "content":
+        return llm.invoke([
+            {"role": "system", "content": format_email_prompt(lead.get("company_name",""), lead.get("industry",""), lead.get("pain_points",""), lead.get("suggestion",""))},
+            {"role": "user", "content":
             f"写一封 B2B 跟进邮件给 {lead.get('company_name','')}，痛点：{lead.get('pain_points','')}，只输出正文"}]).content.strip()
     except:
         return f"尊敬的{lead.get('company_name','客户')}，您好！..."
@@ -86,65 +88,126 @@ def generate_script(lead):
     try:
         from langchain.chat_models import init_chat_model
         llm = init_chat_model(model="deepseek-chat", temperature=0.1)
-        return llm.invoke([{"role": "user", "content":
+        return llm.invoke([
+            {"role": "system", "content": format_script_prompt(lead.get("company_name",""), lead.get("industry",""), lead.get("pain_points",""), lead.get("suggestion",""))},
+            {"role": "user", "content":
             f"写一通电话销售话术给 {lead.get('company_name','')}，痛点：{lead.get('pain_points','')}，只输出话术"}]).content.strip()
     except:
-        return "您好，我是 XX 公司销售代表..."
-
-from langchain_core.tools import tool
-
-
-@tool
-def web_search_tool(query: str) -> str:
-    "Search the web for company information."
-    result = web_search(query)
-    return json.dumps(result, ensure_ascii=False) if isinstance(result, list) else str(result)
-
-
-@tool
-def web_crawl_tool(url: str) -> str:
-    "Crawl a company website to extract content."
-    return str(web_crawl(url))
-
-
-@tool
-def analyze_lead_tool(company_name: str, search_data: str, crawl_data: str) -> str:
-    "Analyze and score a B2B lead."
-    result = analysis(company_name, search_data, crawl_data)
-    return json.dumps(result, ensure_ascii=False)
-
-
-@tool
-def generate_email_tool(company_name: str, industry: str, pain_points: str, suggestion: str) -> str:
-    "Generate a follow-up email for a lead."
-    lead = {
-        "company_name": company_name,
-        "industry": industry,
-        "pain_points": pain_points,
-        "suggestion": suggestion,
-    }
-    return generate_email(lead)
-
-
-@tool
-def generate_script_tool(company_name: str, industry: str, pain_points: str, suggestion: str) -> str:
-    "Generate a sales call script for a lead."
-    lead = {
-        "company_name": company_name,
-        "industry": industry,
-        "pain_points": pain_points,
-        "suggestion": suggestion,
-    }
-    return generate_script(lead)
-
-
-@tool
-def generate_proposal_tool(company_name: str, industry: str, pain_points: str, suggestion: str) -> str:
-    "Generate a sales proposal document for a lead."
-    lead = {
-        "company_name": company_name,
-        "industry": industry,
-        "pain_points": pain_points,
-        "suggestion": suggestion,
-    }
-    return generate_proposal(lead)
+        return "您好，我是 XX 公司销售代表..."
+
+
+
+from langchain_core.tools import tool
+
+
+
+
+
+@tool
+
+def web_search_tool(query: str) -> str:
+
+    "Search the web for company information."
+
+    result = web_search(query)
+
+    return json.dumps(result, ensure_ascii=False) if isinstance(result, list) else str(result)
+
+
+
+
+
+@tool
+
+def web_crawl_tool(url: str) -> str:
+
+    "Crawl a company website to extract content."
+
+    return str(web_crawl(url))
+
+
+
+
+
+@tool
+
+def analyze_lead_tool(company_name: str, search_data: str, crawl_data: str) -> str:
+
+    "Analyze and score a B2B lead."
+
+    result = analysis(company_name, search_data, crawl_data)
+
+    return json.dumps(result, ensure_ascii=False)
+
+
+
+
+
+@tool
+
+def generate_email_tool(company_name: str, industry: str, pain_points: str, suggestion: str) -> str:
+
+    "Generate a follow-up email for a lead."
+
+    lead = {
+
+        "company_name": company_name,
+
+        "industry": industry,
+
+        "pain_points": pain_points,
+
+        "suggestion": suggestion,
+
+    }
+
+    return generate_email(lead)
+
+
+
+
+
+@tool
+
+def generate_script_tool(company_name: str, industry: str, pain_points: str, suggestion: str) -> str:
+
+    "Generate a sales call script for a lead."
+
+    lead = {
+
+        "company_name": company_name,
+
+        "industry": industry,
+
+        "pain_points": pain_points,
+
+        "suggestion": suggestion,
+
+    }
+
+    return generate_script(lead)
+
+
+
+
+
+@tool
+
+def generate_proposal_tool(company_name: str, industry: str, pain_points: str, suggestion: str) -> str:
+
+    "Generate a sales proposal document for a lead."
+
+    lead = {
+
+        "company_name": company_name,
+
+        "industry": industry,
+
+        "pain_points": pain_points,
+
+        "suggestion": suggestion,
+
+    }
+
+    return generate_proposal(lead)
+
